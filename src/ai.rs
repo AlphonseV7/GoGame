@@ -1,6 +1,9 @@
 use crate::game::Game;
 use crate::board::{Board, Color};
 
+/// Komi used when judging playout outcomes (matches Game's Japanese komi).
+const KOMI: f64 = 6.5;
+
 struct Rng { state: u64 }
 
 impl Rng {
@@ -25,26 +28,41 @@ pub fn get_move(game: &Game, difficulty: u8, seed: u32) -> i32 {
     if moves.is_empty() { return -1; }
     let size = game.board_size();
     match difficulty {
-        0 => { let (r, c) = noob(&moves, &mut rng); (r * size + c) as i32 }
+        0 => { let (r, c) = noob(game, &moves, &mut rng); (r * size + c) as i32 }
         1 => { let (r, c) = average(game, &moves, &mut rng); (r * size + c) as i32 }
         _ => dan_index(game, &moves, &mut rng),
     }
 }
 
-// ── Noob: any legal move at random ──
-fn noob(moves: &[(usize, usize)], rng: &mut Rng) -> (usize, usize) {
-    rng.pick(moves)
+// ── Noob: weak, but no longer suicidal ──
+// Plays at random, yet avoids the two moves that make a beginner bot look
+// broken: filling in its own eyes and self-atari (handing over stones).
+fn noob(game: &Game, moves: &[(usize, usize)], rng: &mut Rng) -> (usize, usize) {
+    let board = game.board();
+    let me = game.current_player_color();
+    let safe: Vec<(usize, usize)> = moves.iter()
+        .filter(|&&(r, c)| !is_eye_for(board, r, c, me) && !is_self_atari(game, r, c))
+        .copied().collect();
+    if safe.is_empty() { rng.pick(moves) } else { rng.pick(&safe) }
 }
 
 // ── Average: simple tactics ──
 fn average(game: &Game, moves: &[(usize, usize)], rng: &mut Rng) -> (usize, usize) {
+    // 1. Take a capture if one is on offer.
     if let Some(&m) = moves.iter().find(|&&(r, c)| captures_opponent(game, r, c)) {
         return m;
     }
+    // 2. Rescue one of our own groups that's in atari.
     if let Some(&m) = moves.iter()
         .find(|&&(r, c)| saves_atari(game, r, c) && !is_self_atari(game, r, c)) {
         return m;
     }
+    // 3. Put an opponent group into atari (pressure that often wins stones next).
+    if let Some(&m) = moves.iter()
+        .find(|&&(r, c)| ataris_opponent(game, r, c) && !is_self_atari(game, r, c)) {
+        return m;
+    }
+    // 4. Otherwise play a sound contact move, falling back to anything sane.
     let board = game.board();
     let me = game.current_player_color();
     let good: Vec<(usize, usize)> = moves.iter()
@@ -80,10 +98,12 @@ fn dan_index(game: &Game, moves: &[(usize, usize)], rng: &mut Rng) -> i32 {
     }
 
     let size = game.board_size();
+    // Tuned for ~1–3s think time in the browser (WASM). The smarter playouts
+    // mean each iteration is worth far more than the old pure-random ones.
     let iterations = match size {
-        n if n >= 19 => 400,
-        n if n >= 13 => 900,
-        _            => 1600,
+        n if n >= 19 => 350,
+        n if n >= 13 => 750,
+        _            => 1500,
     };
     mcts(game, rng, iterations)
 }
@@ -184,7 +204,12 @@ fn sensible_moves(game: &Game) -> Vec<(usize, usize)> {
         .collect()
 }
 
-/// Random eye-aware playout. Returns the winning Color or Empty for a tie.
+/// Light-policy playout. Returns the winning Color (komi-adjusted) or Empty.
+///
+/// Pure-random rollouts give very noisy evaluations because stones die for no
+/// reason. We keep rollouts cheap but add two cheap rules that hugely improve
+/// signal: never fill our own eyes, and don't self-atari (throw stones away).
+/// A fast empty-neighbour pre-check keeps the costly self-atari test rare.
 fn simulate(start: &Game, rng: &mut Rng) -> Color {
     let mut sim = start.clone();
     let size = sim.board_size();
@@ -194,19 +219,25 @@ fn simulate(start: &Game, rng: &mut Rng) -> Color {
     while !sim.is_game_over() && played < max_moves {
         let player = sim.current_player_color();
         let mut placed = false;
-        for _ in 0..10 {
+        for _ in 0..8 {
             let r = (rng.next() as usize) % size;
             let c = (rng.next() as usize) % size;
-            if sim.board().get(r, c) != Color::Empty { continue; }
-            if is_eye_for(sim.board(), r, c, player) { continue; }
+            let board = sim.board();
+            if board.get(r, c) != Color::Empty { continue; }
+            if is_eye_for(board, r, c, player) { continue; }
+            // Cheap guard: a point with 2+ empty neighbours can't be self-atari,
+            // so we only pay for the full check on tight points.
+            let open = board.neighbors(r, c).iter()
+                .filter(|&&(nr, nc)| board.get(nr, nc) == Color::Empty).count();
+            if open < 2 && is_self_atari(&sim, r, c) { continue; }
             if sim.place_stone(r, c) { placed = true; break; }
         }
         if !placed { sim.pass_turn(); }
         played += 1;
     }
 
-    let b = area_score(sim.board(), Color::Black);
-    let w = area_score(sim.board(), Color::White);
+    let b = area_score(sim.board(), Color::Black) as f64;
+    let w = area_score(sim.board(), Color::White) as f64 + KOMI;
     if b > w { Color::Black } else if w > b { Color::White } else { Color::Empty }
 }
 
@@ -256,6 +287,18 @@ fn captures_opponent(game: &Game, row: usize, col: usize) -> bool {
     let opp = game.current_player_color().opposite();
     board.neighbors(row, col).iter().any(|&(nr, nc)| {
         board.get(nr, nc) == opp && board.count_liberties(nr, nc) == 1
+    })
+}
+
+/// Does playing here drop an adjacent opponent group to a single liberty
+/// (without outright capturing it)?
+fn ataris_opponent(game: &Game, row: usize, col: usize) -> bool {
+    let me = game.current_player_color();
+    let opp = me.opposite();
+    let mut b = game.board().clone();
+    b.set(row, col, me);
+    b.neighbors(row, col).iter().any(|&(nr, nc)| {
+        b.get(nr, nc) == opp && b.count_liberties(nr, nc) == 1
     })
 }
 
@@ -340,6 +383,18 @@ mod tests {
         g.place_stone(0, 0); // White — corner, one liberty left at (1,0)
         let mv = get_move(&g, 2, 7);
         assert_eq!(mv, (1 * 9 + 0) as i32);
+    }
+
+    #[test]
+    fn average_ataris_opponent_when_no_capture() {
+        // Lone white stone in the corner (2 liberties). With no capture or
+        // own-atari to handle, Average should put it into atari.
+        let mut g = Game::new(9);
+        g.place_stone(4, 4); // Black, far away
+        g.place_stone(0, 0); // White — corner, liberties (0,1) and (1,0)
+        let mv = get_move(&g, 1, 3);
+        // Either approach move ataris white; both are row-major-first valid ones.
+        assert!(mv == 1 /* (0,1) */ || mv == 9 /* (1,0) */);
     }
 
     #[test]
