@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Go</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>囲碁</h1>
+    </header>
+
+    <div id="game-area">
+      <div id="info-bar">
+        <div class="player-info" id="black-info">
+          <span class="stone-icon black"></span>
+          <span class="label">Black</span>
+          <span class="captures" id="black-captures">0 captures</span>
+        </div>
+        <div id="turn-indicator">
+          <span id="turn-text">Black's Turn</span>
+        </div>
+        <div class="player-info" id="white-info">
+          <span class="captures" id="white-captures">0 captures</span>
+          <span class="label">White</span>
+          <span class="stone-icon white"></span>
+        </div>
+      </div>
+
+      <canvas id="board-canvas"></canvas>
+
+      <div id="controls">
+        <button id="pass-btn">Pass</button>
+        <button id="reset-btn">New Game</button>
+      </div>
+    </div>
+
+    <div id="game-over-overlay" class="hidden">
+      <div id="game-over-box">
+        <h2>Game Over</h2>
+        <p id="result-text">Both players passed.</p>
+        <button id="new-game-btn">Play Again</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
