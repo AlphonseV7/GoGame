@@ -92,7 +92,7 @@ fn mcts(game: &Game, rng: &mut Rng, iterations: usize) -> i32 {
     const C: f64 = 1.41; // exploration constant (~sqrt 2)
 
     let root_cands = sensible_moves(game);
-    if root_cands.is_empty() { return -1; } // nothing worth playing → pass
+    if root_cands.is_empty() { return -1; }
 
     let to_move = game.current_player_color();
     let mut nodes: Vec<Node> = vec![Node {
@@ -175,7 +175,7 @@ fn mcts(game: &Game, rng: &mut Rng, iterations: usize) -> i32 {
     }
 }
 
-/// Legal moves minus self-atari and our own eyes — the moves worth considering.
+/// Legal moves minus self-atari and our own eyes.
 fn sensible_moves(game: &Game) -> Vec<(usize, usize)> {
     let board = game.board();
     let me = game.current_player_color();
@@ -184,8 +184,7 @@ fn sensible_moves(game: &Game) -> Vec<(usize, usize)> {
         .collect()
 }
 
-/// One random-but-eye-respecting game to the end. Returns the winning Color
-/// (Color::Empty on a tie) by area score.
+/// Random eye-aware playout. Returns the winning Color or Empty for a tie.
 fn simulate(start: &Game, rng: &mut Rng) -> Color {
     let mut sim = start.clone();
     let size = sim.board_size();
@@ -211,8 +210,7 @@ fn simulate(start: &Game, rng: &mut Rng) -> Color {
     if b > w { Color::Black } else if w > b { Color::White } else { Color::Empty }
 }
 
-/// Area score (Tromp-Taylor style): stones of `color` + empty points reachable
-/// only from `color`.
+/// Tromp-Taylor area score: stones of `color` + empty points enclosed only by `color`.
 fn area_score(board: &Board, color: Color) -> i32 {
     let size = board.size();
     let mut visited = vec![vec![false; size]; size];
@@ -298,16 +296,33 @@ mod tests {
     }
 
     #[test]
-    fn area_score_counts_enclosed_territory() {
-        let mut b = Board::new(9);
-        // Black wall enclosing the (0,0) corner point.
-        b.set(0, 1, Color::Black);
-        b.set(1, 0, Color::Black);
-        b.set(1, 1, Color::Black);
-        // (0,0) is empty, bordered only by black → counts for black.
-        let black = area_score(&b, Color::Black);
-        assert_eq!(black, 4); // 3 stones + 1 territory point
-        assert_eq!(area_score(&b, Color::White), 0);
+    fn area_score_separates_territory() {
+        // On a 5x5 board, a black wall at col 1 and a white wall at col 3
+        // divide the board into three regions:
+        //   col 0  → bordered only by black  → 5 black territory points
+        //   col 2  → bordered by both        → neutral (0 for either)
+        //   col 4  → bordered only by white  → 5 white territory points
+        let mut b = Board::new(5);
+        for r in 0..5 {
+            b.set(r, 1, Color::Black);
+            b.set(r, 3, Color::White);
+        }
+        // Black: 5 stones + 5 territory = 10
+        assert_eq!(area_score(&b, Color::Black), 10);
+        // White: 5 stones + 5 territory = 10
+        assert_eq!(area_score(&b, Color::White), 10);
+    }
+
+    #[test]
+    fn area_score_neutral_region_counts_for_neither() {
+        // A single black stone and a single white stone on opposite corners
+        // of a 5x5: neither side encloses any territory fully.
+        let mut b = Board::new(5);
+        b.set(0, 0, Color::Black);
+        b.set(4, 4, Color::White);
+        // (0,0) borders the large empty region which also borders white → neutral.
+        assert_eq!(area_score(&b, Color::Black), 1); // just the stone itself
+        assert_eq!(area_score(&b, Color::White), 1);
     }
 
     #[test]
@@ -319,23 +334,21 @@ mod tests {
 
     #[test]
     fn dan_takes_free_capture() {
+        // White stone in corner with one liberty; Dan must take it.
         let mut g = Game::new(9);
         g.place_stone(0, 1); // Black
-        g.place_stone(0, 0); // White, corner, one liberty at (1,0)
-        let mv = get_move(&g, 2, 7); // Black to move
+        g.place_stone(0, 0); // White — corner, one liberty left at (1,0)
+        let mv = get_move(&g, 2, 7);
         assert_eq!(mv, (1 * 9 + 0) as i32);
     }
 
     #[test]
-    fn mcts_prefers_capture_over_random() {
-        // White stone in atari at (0,0); black should capture at (1,0).
+    fn average_takes_free_capture() {
+        // Average always takes a capture when one is available (deterministic).
         let mut g = Game::new(9);
-        g.place_stone(0, 1); // B
-        g.place_stone(0, 0); // W
-        // Run pure MCTS (bypassing the capture shortcut) and confirm it still
-        // lands the capture often — we just assert it returns the capture here.
-        let mut rng = Rng::new(123);
-        let mv = mcts(&g, &mut rng, 300);
+        g.place_stone(0, 1); // Black
+        g.place_stone(0, 0); // White — corner, one liberty left at (1,0)
+        let mv = get_move(&g, 1, 0); // difficulty=1 (average), seed irrelevant
         assert_eq!(mv, (1 * 9 + 0) as i32);
     }
 }
