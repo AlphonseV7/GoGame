@@ -2,6 +2,9 @@ use wasm_bindgen::prelude::*;
 use crate::board::{Board, Color};
 use crate::ai;
 
+/// Standard komi for Japanese rules (compensation for Black moving first).
+const KOMI: f64 = 6.5;
+
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct Game {
@@ -84,6 +87,30 @@ impl Game {
     pub fn white_captures(&self) -> usize { self.white_captures }
     pub fn is_game_over(&self) -> bool { self.game_over }
     pub fn board_size(&self) -> usize { self.board.size() }
+
+    // ── Japanese-rules scoring ──
+    // Score = territory + prisoners (stones you captured). White also gets
+    // komi to offset Black's first-move advantage. Dead stones are assumed
+    // already removed (captured) before both players pass.
+
+    pub fn komi(&self) -> f64 { KOMI }
+
+    pub fn black_territory(&self) -> usize { self.board.territory().0 }
+    pub fn white_territory(&self) -> usize { self.board.territory().1 }
+
+    pub fn black_score(&self) -> f64 {
+        self.board.territory().0 as f64 + self.black_captures as f64
+    }
+
+    pub fn white_score(&self) -> f64 {
+        self.board.territory().1 as f64 + self.white_captures as f64 + KOMI
+    }
+
+    /// 1 = Black wins, 2 = White wins, 0 = tie.
+    pub fn winner(&self) -> u8 {
+        let (b, w) = (self.black_score(), self.white_score());
+        if b > w { 1 } else if w > b { 2 } else { 0 }
+    }
 
     /// Returns AI move as row*board_size+col, or -1 for pass.
     /// difficulty: 0=noob 1=average 2=dan  |  seed: Date.now() from JS
@@ -183,5 +210,26 @@ mod tests {
         let mut g = Game::new(13);
         assert!(g.place_stone(6,6));
         assert_eq!(g.board_size(), 13);
+    }
+
+    #[test]
+    fn white_wins_empty_board_on_komi() {
+        // No moves played: 0 territory each, only komi counts → White wins.
+        let g = Game::new(9);
+        assert_eq!(g.black_score(), 0.0);
+        assert_eq!(g.white_score(), 6.5);
+        assert_eq!(g.winner(), 2);
+    }
+
+    #[test]
+    fn prisoners_count_toward_score() {
+        // Black captures one white stone in the corner.
+        let mut g = Game::new(9);
+        g.place_stone(0,1); // Black
+        g.place_stone(0,0); // White — corner
+        g.place_stone(1,0); // Black — captures white at (0,0)
+        assert_eq!(g.black_captures(), 1);
+        // That prisoner adds 1 to Black's score on top of territory.
+        assert!(g.black_score() >= 1.0);
     }
 }
