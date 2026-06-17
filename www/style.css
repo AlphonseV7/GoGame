@@ -145,7 +145,32 @@ body {
   font-size: .88rem;
 }
 
-.cap-info { display: flex; align-items: center; gap: 6px; }
+.cap-info { display: flex; align-items: center; gap: 6px; max-width: 45%; }
+.cap-info.reverse { justify-content: flex-end; }
+.cap-count { font-weight: bold; }
+
+/* Captured-stone counter: a little row of stones, one per prisoner. */
+.cap-dots {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: center;
+  max-width: 120px;
+}
+.mini-stone {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.mini-stone.black {
+  background: radial-gradient(circle at 35% 32%, #606060, #1a1a1a 70%);
+  box-shadow: 0 1px 1px rgba(0,0,0,.4);
+}
+.mini-stone.white {
+  background: radial-gradient(circle at 35% 32%, #fff, #d0cdc7 70%);
+  border: 1px solid #bbb;
+}
 
 .stone-icon {
   width: 20px; height: 20px;
@@ -331,4 +356,35 @@ body {
   font-size: 1.8rem;
   color: var(--wood-dark);
   letter-spacing: .1em;
+}
+
+#score-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: .9rem;
+}
+#score-table th, #score-table td {
+  padding: 5px 6px;
+  text-align: center;
+  border-bottom: 1px solid var(--muted);
+}
+#score-table th {
+  font-weight: normal;
+  font-size: .72rem;
+  color: var(--wood-dark);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+#score-table td:last-child, #score-table th:last-child { font-weight: bold; }
+#score-table .stone-icon { width: 16px; height: 16px; }
+
+#result-text {
+  font-size: 1.15rem;
+  font-weight: bold;
+  color: var(--wood-dark);
+}
+#score-note {
+  font-size: .72rem;
+  opacity: .65;
+  line-height: 1.4;
 }

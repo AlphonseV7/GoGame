@@ -178,12 +178,55 @@ function update() {
   draw();
   const p = game.current_player();
   $('turn-text').textContent = p === 1 ? "Black’s Turn" : "White’s Turn";
-  $('black-captures').textContent = `${game.black_captures()} cap`;
-  $('white-captures').textContent = `${game.white_captures()} cap`;
+
+  const bc = game.black_captures(), wc = game.white_captures();
+  $('black-captures').textContent = bc;
+  $('white-captures').textContent = wc;
+  renderCapDots('black-cap-dots', bc, 'black');
+  renderCapDots('white-cap-dots', wc, 'white');
+
   if (game.is_game_over()) {
-    $('result-text').textContent = 'Both players passed. Count the territory!';
+    showScore();
     $('game-over-overlay').classList.remove('hidden');
   }
+}
+
+// Draw `count` small stones; cap the visible row so it never overflows.
+const MAX_DOTS = 10;
+function renderCapDots(id, count, color) {
+  const el = $(id);
+  el.innerHTML = '';
+  const shown = Math.min(count, MAX_DOTS);
+  for (let i = 0; i < shown; i++) {
+    const s = document.createElement('span');
+    s.className = `mini-stone ${color}`;
+    el.appendChild(s);
+  }
+}
+
+// Format a score: whole numbers stay clean, half-points show one decimal.
+function fmt(n) { return Number.isInteger(n) ? `${n}` : n.toFixed(1); }
+
+function showScore() {
+  const bt = game.black_territory(), wt = game.white_territory();
+  const bc = game.black_captures(),  wc = game.white_captures();
+  const komi = game.komi();
+  const bs = game.black_score(),     ws = game.white_score();
+
+  $('sc-black-terr').textContent  = bt;
+  $('sc-black-pris').textContent  = bc;
+  $('sc-black-total').textContent = fmt(bs);
+  $('sc-white-terr').textContent  = wt;
+  $('sc-white-pris').textContent  = wc;
+  $('sc-white-komi').textContent  = fmt(komi);
+  $('sc-white-total').textContent = fmt(ws);
+
+  const w = game.winner();
+  const margin = fmt(Math.abs(bs - ws));
+  $('result-text').textContent =
+    w === 1 ? `Black wins by ${margin}` :
+    w === 2 ? `White wins by ${margin}` :
+              'Dead even — a tie!';
 }
 
 // ── Avatar “thinking” state ──

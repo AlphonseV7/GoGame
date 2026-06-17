@@ -109,6 +109,53 @@ impl Board {
     pub fn count_stones(&self, color: Color) -> usize {
         self.cells.iter().filter(|&&c| c == color).count()
     }
+
+    /// Japanese-style territory: each empty region enclosed by a single
+    /// colour scores for that colour. Regions touching both colours (dame)
+    /// — or an empty board — count for neither.
+    /// Returns (black_territory, white_territory).
+    ///
+    /// This assumes all stones left on the board are alive, which is the
+    /// standard convention: dead stones should be captured (removed) before
+    /// both players pass.
+    pub fn territory(&self) -> (usize, usize) {
+        let size = self.size;
+        let mut visited = vec![false; size * size];
+        let (mut black, mut white) = (0usize, 0usize);
+
+        for r in 0..size {
+            for c in 0..size {
+                if self.get(r, c) != Color::Empty { continue; }
+                let start = self.idx(r, c);
+                if visited[start] { continue; }
+
+                // Flood-fill this empty region, noting which colours border it.
+                let mut region_size = 0usize;
+                let mut touches_black = false;
+                let mut touches_white = false;
+                let mut stack = vec![(r, c)];
+                visited[start] = true;
+
+                while let Some((cr, cc)) = stack.pop() {
+                    region_size += 1;
+                    for (nr, nc) in self.neighbors(cr, cc) {
+                        match self.get(nr, nc) {
+                            Color::Empty => {
+                                let ni = self.idx(nr, nc);
+                                if !visited[ni] { visited[ni] = true; stack.push((nr, nc)); }
+                            }
+                            Color::Black => touches_black = true,
+                            Color::White => touches_white = true,
+                        }
+                    }
+                }
+
+                if touches_black && !touches_white { black += region_size; }
+                else if touches_white && !touches_black { white += region_size; }
+            }
+        }
+        (black, white)
+    }
 }
 
 #[cfg(test)]
@@ -179,6 +226,39 @@ mod tests {
         b.set(2,1,Color::Black); b.set(2,2,Color::Black);
         b.set(1,0,Color::Black); b.set(1,3,Color::Black);
         assert_eq!(b.remove_captured(Color::White), 2);
+    }
+
+    #[test]
+    fn territory_split_by_opposing_walls() {
+        // 5×5: black wall on col 1, white wall on col 3.
+        // col 0 (5 pts) is black's, col 4 (5 pts) is white's, col 2 is dame.
+        let mut b = Board::new(5);
+        for r in 0..5 {
+            b.set(r, 1, Color::Black);
+            b.set(r, 3, Color::White);
+        }
+        assert_eq!(b.territory(), (5, 5));
+    }
+
+    #[test]
+    fn empty_board_has_no_territory() {
+        assert_eq!(Board::new(9).territory(), (0, 0));
+    }
+
+    #[test]
+    fn enclosed_corner_is_territory() {
+        // Black seals off the top-left 2×2 corner with a diagonal wall.
+        let mut b = Board::new(9);
+        b.set(0, 2, Color::Black);
+        b.set(1, 2, Color::Black);
+        b.set(2, 2, Color::Black);
+        b.set(2, 1, Color::Black);
+        b.set(2, 0, Color::Black);
+        // Enclosed empties: (0,0),(0,1),(1,0),(1,1) = 4 points, no white anywhere.
+        // With no white stones the only bordered colour is black.
+        let (black, white) = b.territory();
+        assert_eq!(white, 0);
+        assert!(black >= 4);
     }
 
     #[test]
