@@ -44,11 +44,11 @@
         </button>
         <button class="menu-btn two-line" data-diff="1">
           <span class="opt-label">Average</span>
-          <span class="opt-desc">Captures & defends</span>
+          <span class="opt-desc">Captures &amp; defends</span>
         </button>
         <button class="menu-btn two-line" data-diff="2">
           <span class="opt-label">Dan</span>
-          <span class="opt-desc">Thinks ahead</span>
+          <span class="opt-desc">Searches ahead (MCTS)</span>
         </button>
         <button class="menu-btn back-btn" id="btn-back-diff">← Back</button>
       </nav>
@@ -85,6 +85,23 @@
         <span id="turn-text">Black’s Turn</span>
         <button class="small-btn" id="pass-btn">Pass</button>
       </div>
+
+      <!-- Sensei avatar (AI games only). The .thinking class animates it. -->
+      <div id="ai-avatar-wrap" class="hidden">
+        <div id="ai-avatar">
+          <div class="bust">
+            <div class="head">
+              <div class="eye left"></div>
+              <div class="eye right"></div>
+              <div class="brow left"></div>
+              <div class="brow right"></div>
+            </div>
+          </div>
+          <div class="thought"><span></span><span></span><span></span></div>
+        </div>
+        <div id="avatar-name"></div>
+      </div>
+
       <div id="captures-bar">
         <div class="cap-info">
           <span class="stone-icon black"></span>
@@ -96,6 +113,7 @@
           <span class="stone-icon white"></span>
         </div>
       </div>
+
       <canvas id="board-canvas"></canvas>
     </div>
 

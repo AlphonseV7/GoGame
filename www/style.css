@@ -193,6 +193,116 @@ body {
 }
 .small-btn:hover { background: var(--wood-mid); }
 
+/* ── Sensei Avatar ──
+   This bust is drawn entirely in CSS as a placeholder. To use your own art
+   later (e.g. a sprite sheet exported from Piskel with N frames laid out
+   horizontally), replace the .bust / .head block with a background image on
+   #ai-avatar:
+       #ai-avatar { background: url('assets/sensei.png') 0 0 / 300% 100% no-repeat; }
+   and animate background-position in steps() inside an @keyframes that runs
+   under `#ai-avatar-wrap.thinking #ai-avatar`. The thinking class is toggled
+   from main.js, so the wiring stays the same. */
+#ai-avatar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+#ai-avatar-wrap.hidden { display: none; }
+
+#ai-avatar {
+  position: relative;
+  width: 72px;
+  height: 60px;
+  transform-origin: center bottom;
+}
+
+.bust {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 62px;
+  height: 30px;
+  background: var(--wood-dark);
+  border-radius: 31px 31px 0 0;
+}
+
+.head {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%, #f3d9a8, #e3c084);
+  box-shadow: inset -3px -3px 5px rgba(0,0,0,.12);
+}
+
+.eye {
+  position: absolute;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #2c1810;
+  top: 19px;
+  transition: top .3s, height .3s;
+}
+.eye.left  { left: 11px; }
+.eye.right { right: 11px; }
+
+.brow {
+  position: absolute;
+  width: 9px; height: 2px;
+  background: #5a3e1b;
+  border-radius: 2px;
+  top: 14px;
+  opacity: 0;
+  transition: opacity .3s, top .3s, transform .3s;
+}
+.brow.left  { left: 9px; }
+.brow.right { right: 9px; }
+
+.thought {
+  position: absolute;
+  top: -8px; right: -4px;
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity .3s;
+}
+.thought span {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--wood-dark);
+}
+
+#avatar-name {
+  font-size: .8rem;
+  color: var(--wood-dark);
+  letter-spacing: .04em;
+}
+
+/* Thinking state: head tilts, eyes glance up, brows raise, thought dots bob. */
+#ai-avatar-wrap.thinking #ai-avatar { animation: sensei-tilt 1.6s ease-in-out infinite; }
+#ai-avatar-wrap.thinking .eye  { top: 15px; height: 6px; }
+#ai-avatar-wrap.thinking .brow { opacity: 1; top: 11px; }
+#ai-avatar-wrap.thinking .brow.right { transform: rotate(-14deg); }
+#ai-avatar-wrap.thinking .thought { opacity: 1; }
+#ai-avatar-wrap.thinking .thought span { animation: think-dot 1.2s ease-in-out infinite; }
+.thought span:nth-child(2) { animation-delay: .2s; }
+.thought span:nth-child(3) { animation-delay: .4s; }
+
+@keyframes sensei-tilt {
+  0%, 100% { transform: rotate(0deg); }
+  30%      { transform: rotate(-7deg); }
+  60%      { transform: rotate(4deg); }
+}
+@keyframes think-dot {
+  0%, 100% { transform: translateY(0);    opacity: .4; }
+  50%      { transform: translateY(-4px); opacity: 1; }
+}
+
 /* ── Game Over ── */
 #game-over-overlay {
   position: absolute;
