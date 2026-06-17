@@ -1,41 +1,54 @@
 import init, { Game } from './pkg/gogame.js';
 
-// ── State ────────────────────────────────────────────────
+// ── State ──
 let game      = null;
-let gameMode  = 'pvp';  // 'pvp' | 'pvai'
-let aiDiff    = 0;       // 0=noob 1=average 2=dan
+let gameMode  = 'pvp';   // 'pvp' | 'pvai'
+let aiDiff    = 0;        // 0=noob 1=average 2=dan
 let boardSize = 19;
 let aiThinking = false;
+let history   = [];       // every move applied, as index (row*size+col) or -1 for pass
+
+let worker = null;        // AI Web Worker (null → fall back to main-thread AI)
 
 let canvas, ctx, cellSize;
 const PAD = 38;
 const HOSHI = { 9:[2,4,6], 13:[3,6,9], 19:[3,9,15] };
 
-// ── Boot ─────────────────────────────────────────────────
+const DIFF_NAMES = ['Noob', 'Average', 'Dan'];
+
+// ── Boot ──
 async function boot() {
   await init();
+  setupWorker();
   bindAll();
   show('screen-title');
 }
 
-// ── Screen routing ───────────────────────────────────────
+function setupWorker() {
+  try {
+    worker = new Worker(new URL('./ai-worker.js', import.meta.url), { type: 'module' });
+    worker.onmessage = (e) => applyAIMove(e.data.move);
+    worker.onerror = () => { worker = null; }; // fall back to synchronous AI
+  } catch (_) {
+    worker = null;
+  }
+}
+
+// ── Screen routing ──
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
 }
 function $(id) { return document.getElementById(id); }
 
-// ── Wire up all buttons ──────────────────────────────────
+// ── Buttons ──
 function bindAll() {
-  // Title
   $('btn-local-game').onclick = () => show('screen-local-setup');
 
-  // Local setup
   $('btn-pvai').onclick = () => { gameMode = 'pvai'; show('screen-ai-difficulty'); };
   $('btn-pvp').onclick  = () => { gameMode = 'pvp';  show('screen-board-size'); };
   $('btn-back-local').onclick = () => show('screen-title');
 
-  // AI difficulty
   document.querySelectorAll('[data-diff]').forEach(btn =>
     btn.addEventListener('click', () => {
       aiDiff = parseInt(btn.dataset.diff);
@@ -44,7 +57,6 @@ function bindAll() {
   );
   $('btn-back-diff').onclick = () => show('screen-local-setup');
 
-  // Board size
   document.querySelectorAll('[data-size]').forEach(btn =>
     btn.addEventListener('click', () => {
       boardSize = parseInt(btn.dataset.size);
@@ -54,46 +66,50 @@ function bindAll() {
   $('btn-back-size').onclick = () =>
     show(gameMode === 'pvai' ? 'screen-ai-difficulty' : 'screen-local-setup');
 
-  // In-game
   $('btn-menu').onclick = () => show('screen-title');
   $('pass-btn').onclick = () => {
-    if (aiThinking) return;
+    if (aiThinking || game.is_game_over()) return;
     game.pass_turn();
+    history.push(-1);
     update();
     maybeAI();
   };
   $('new-game-btn').onclick = () => show('screen-title');
 }
 
-// ── Start a game ─────────────────────────────────────────
+// ── Start a game ──
 function startGame() {
   aiThinking = false;
+  history = [];
   game = new Game(boardSize);
   show('screen-game');
   $('game-over-overlay').classList.add('hidden');
+  // Show the Sensei avatar only when playing against the AI.
+  $('ai-avatar-wrap').classList.toggle('hidden', gameMode !== 'pvai');
+  $('avatar-name').textContent = gameMode === 'pvai' ? `Sensei · ${DIFF_NAMES[aiDiff]}` : '';
+  setThinking(false);
   setupCanvas();
   update();
 }
 
-// ── Canvas ───────────────────────────────────────────────
+// ── Canvas ──
 function setupCanvas() {
   canvas = $('board-canvas');
   ctx = canvas.getContext('2d');
   canvas.onclick = onCanvasClick;
-  const maxPx = Math.min(window.innerWidth - 48, window.innerHeight - 180, 580);
+  const maxPx = Math.min(window.innerWidth - 48, window.innerHeight - 220, 560);
   canvas.width = canvas.height = maxPx;
   cellSize = (maxPx - PAD * 2) / (boardSize - 1);
 }
 
 function px(i) { return PAD + i * cellSize; }
 
-// ── Draw ─────────────────────────────────────────────────
+// ── Draw ──
 function draw() {
   const s = canvas.width;
   ctx.fillStyle = '#c8a84b';
   ctx.fillRect(0, 0, s, s);
 
-  // Wood grain
   ctx.save();
   ctx.globalAlpha = 0.055;
   for (let i = -s; i < s * 2; i += 10) {
@@ -102,21 +118,18 @@ function draw() {
   }
   ctx.restore();
 
-  // Grid
   ctx.strokeStyle = '#5a3e1b'; ctx.lineWidth = 1;
   for (let i = 0; i < boardSize; i++) {
     ctx.beginPath(); ctx.moveTo(px(i), px(0)); ctx.lineTo(px(i), px(boardSize-1)); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(px(0), px(i)); ctx.lineTo(px(boardSize-1), px(i)); ctx.stroke();
   }
 
-  // Hoshi
   const dots = HOSHI[boardSize] || [];
   dots.forEach(r => dots.forEach(c => {
     ctx.beginPath(); ctx.arc(px(r), px(c), 4, 0, Math.PI*2);
     ctx.fillStyle = '#5a3e1b'; ctx.fill();
   }));
 
-  // Stones
   for (let r = 0; r < boardSize; r++)
     for (let c = 0; c < boardSize; c++) {
       const cell = game.get_cell(r, c);
@@ -144,19 +157,23 @@ function drawStone(row, col, color) {
   }
 }
 
-// ── Input ────────────────────────────────────────────────
+// ── Input ──
 function onCanvasClick(e) {
   if (aiThinking || game.is_game_over()) return;
-  if (gameMode === 'pvai' && game.current_player() === 2) return;
+  if (gameMode === 'pvai' && game.current_player() === 2) return; // AI is White
   const rect = canvas.getBoundingClientRect();
   const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
   const col = Math.round(((e.clientX - rect.left)*sx - PAD) / cellSize);
   const row = Math.round(((e.clientY - rect.top )*sy - PAD) / cellSize);
   if (row < 0 || row >= boardSize || col < 0 || col >= boardSize) return;
-  if (game.place_stone(row, col)) { update(); maybeAI(); }
+  if (game.place_stone(row, col)) {
+    history.push(row * boardSize + col);
+    update();
+    maybeAI();
+  }
 }
 
-// ── Update UI ────────────────────────────────────────────
+// ── Update UI ──
 function update() {
   draw();
   const p = game.current_player();
@@ -169,29 +186,43 @@ function update() {
   }
 }
 
-// ── AI ───────────────────────────────────────────────────
+// ── Avatar “thinking” state ──
+function setThinking(on) {
+  $('ai-avatar-wrap').classList.toggle('thinking', on);
+  $('ai-status').textContent = on ? 'thinking…' : '';
+}
+
+// ── AI turn ──
 function maybeAI() {
   if (gameMode !== 'pvai' || game.is_game_over()) return;
   if (game.current_player() !== 2) return; // White = AI
   aiThinking = true;
   $('pass-btn').disabled = true;
-  $('ai-status').textContent = 'thinking…';
-  $('turn-text').textContent = 'AI thinking…';
-  setTimeout(() => {
-    const seed = (Date.now() & 0xFFFFFFFF) >>> 0;
-    const idx = game.get_ai_move(aiDiff, seed);
-    if (idx === -1) {
-      game.pass_turn();
-    } else {
-      const row = Math.floor(idx / boardSize);
-      const col = idx % boardSize;
-      game.place_stone(row, col);
-    }
-    aiThinking = false;
-    $('pass-btn').disabled = false;
-    $('ai-status').textContent = '';
-    update();
-  }, 150);
+  setThinking(true);
+
+  const seed = (Date.now() & 0xFFFFFFFF) >>> 0;
+  if (worker) {
+    worker.postMessage({ size: boardSize, diff: aiDiff, seed, history: history.slice() });
+  } else {
+    // Fallback: compute on the main thread (briefly freezes the page).
+    setTimeout(() => applyAIMove(game.get_ai_move(aiDiff, seed)), 50);
+  }
+}
+
+function applyAIMove(move) {
+  if (move === -1) {
+    game.pass_turn();
+    history.push(-1);
+  } else {
+    const row = Math.floor(move / boardSize);
+    const col = move % boardSize;
+    game.place_stone(row, col);
+    history.push(move);
+  }
+  aiThinking = false;
+  $('pass-btn').disabled = false;
+  setThinking(false);
+  update();
 }
 
 boot().catch(console.error);
