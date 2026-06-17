@@ -3,45 +3,107 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Go</title>
+  <title>Go Master</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
-    <header>
-      <h1>囲碁</h1>
-    </header>
 
-    <div id="game-area">
-      <div id="info-bar">
-        <div class="player-info" id="black-info">
+  <!-- Title Screen -->
+  <div id="screen-title" class="screen">
+    <div class="screen-inner">
+      <div class="title-kanji">囲碁</div>
+      <h1 class="title-main">Go Master</h1>
+      <nav class="menu">
+        <button class="menu-btn muted" disabled>New Story Game</button>
+        <button class="menu-btn" id="btn-local-game">New Local Game</button>
+        <button class="menu-btn muted" disabled>Options</button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Local Game Setup -->
+  <div id="screen-local-setup" class="screen hidden">
+    <div class="screen-inner">
+      <h2 class="screen-heading">Local Game</h2>
+      <nav class="menu">
+        <button class="menu-btn" id="btn-pvai">Player vs AI</button>
+        <button class="menu-btn" id="btn-pvp">Player vs Player</button>
+        <button class="menu-btn back-btn" id="btn-back-local">← Back</button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- AI Difficulty -->
+  <div id="screen-ai-difficulty" class="screen hidden">
+    <div class="screen-inner">
+      <h2 class="screen-heading">AI Difficulty</h2>
+      <nav class="menu">
+        <button class="menu-btn two-line" data-diff="0">
+          <span class="opt-label">Noob</span>
+          <span class="opt-desc">Plays randomly</span>
+        </button>
+        <button class="menu-btn two-line" data-diff="1">
+          <span class="opt-label">Average</span>
+          <span class="opt-desc">Captures & defends</span>
+        </button>
+        <button class="menu-btn two-line" data-diff="2">
+          <span class="opt-label">Dan</span>
+          <span class="opt-desc">Thinks ahead</span>
+        </button>
+        <button class="menu-btn back-btn" id="btn-back-diff">← Back</button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Board Size -->
+  <div id="screen-board-size" class="screen hidden">
+    <div class="screen-inner">
+      <h2 class="screen-heading">Board Size</h2>
+      <nav class="menu">
+        <button class="menu-btn two-line" data-size="9">
+          <span class="opt-label">9 × 9</span>
+          <span class="opt-desc">Quick game</span>
+        </button>
+        <button class="menu-btn two-line" data-size="13">
+          <span class="opt-label">13 × 13</span>
+          <span class="opt-desc">Medium game</span>
+        </button>
+        <button class="menu-btn two-line" data-size="19">
+          <span class="opt-label">19 × 19</span>
+          <span class="opt-desc">Full game</span>
+        </button>
+        <button class="menu-btn back-btn" id="btn-back-size">← Back</button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="screen-game" class="screen hidden">
+    <div id="game-layout">
+      <div id="game-topbar">
+        <button class="small-btn" id="btn-menu">← Menu</button>
+        <span id="turn-text">Black’s Turn</span>
+        <button class="small-btn" id="pass-btn">Pass</button>
+      </div>
+      <div id="captures-bar">
+        <div class="cap-info">
           <span class="stone-icon black"></span>
-          <span class="label">Black</span>
-          <span class="captures" id="black-captures">0 captures</span>
+          <span id="black-captures">0 cap</span>
         </div>
-        <div id="turn-indicator">
-          <span id="turn-text">Black's Turn</span>
-        </div>
-        <div class="player-info" id="white-info">
-          <span class="captures" id="white-captures">0 captures</span>
-          <span class="label">White</span>
+        <div id="ai-status"></div>
+        <div class="cap-info">
+          <span id="white-captures">0 cap</span>
           <span class="stone-icon white"></span>
         </div>
       </div>
-
       <canvas id="board-canvas"></canvas>
-
-      <div id="controls">
-        <button id="pass-btn">Pass</button>
-        <button id="reset-btn">New Game</button>
-      </div>
     </div>
 
     <div id="game-over-overlay" class="hidden">
       <div id="game-over-box">
         <h2>Game Over</h2>
         <p id="result-text">Both players passed.</p>
-        <button id="new-game-btn">Play Again</button>
+        <button class="menu-btn" id="new-game-btn">← Main Menu</button>
       </div>
     </div>
   </div>
