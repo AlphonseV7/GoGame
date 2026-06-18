@@ -155,8 +155,9 @@ body {
   flex-wrap: wrap;
   gap: 2px;
   align-items: center;
-  max-width: 120px;
+  max-width: 118px; /* fits 10 stones; further captures wrap to a new row */
 }
+.cap-info.reverse .cap-dots { justify-content: flex-end; }
 .mini-stone {
   width: 10px; height: 10px;
   border-radius: 50%;
@@ -227,13 +228,59 @@ body {
    and animate background-position in steps() inside an @keyframes that runs
    under `#ai-avatar-wrap.thinking #ai-avatar`. The thinking class is toggled
    from main.js, so the wiring stays the same. */
-#ai-avatar-wrap {
+/* Board flanked by two avatar columns. */
+#board-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.side-avatar {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
+  width: 72px;
+  flex-shrink: 0;
 }
-#ai-avatar-wrap.hidden { display: none; }
+.side-avatar.hidden { visibility: hidden; } /* keep board centred when AI hidden */
+.side-name {
+  font-size: .78rem;
+  color: var(--wood-dark);
+  letter-spacing: .04em;
+}
+
+/* Player avatar — generic humanoid silhouette placeholder (swap for art later). */
+.humanoid {
+  position: relative;
+  width: 56px;
+  height: 56px;
+}
+.humanoid::before { /* head */
+  content: '';
+  position: absolute;
+  top: 4px; left: 50%;
+  transform: translateX(-50%);
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--wood-dark);
+}
+.humanoid::after { /* shoulders */
+  content: '';
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 48px; height: 28px;
+  border-radius: 24px 24px 0 0;
+  background: var(--wood-dark);
+}
+
+#ai-avatar-wrap { gap: 3px; }
+/* Keep the column's width so the board stays centred even with no Sensei. */
+#ai-avatar-wrap.hidden { visibility: hidden; }
 
 #ai-avatar {
   position: relative;
@@ -328,31 +375,22 @@ body {
   50%      { transform: translateY(-4px); opacity: 1; }
 }
 
-/* ── Game Over ── */
-#game-over-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,.48);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10;
-}
-#game-over-overlay.hidden { display: none; }
-
-#game-over-box {
+/* ── Game Over (inline panel; board stays visible to check the score) ── */
+#game-over-panel {
   background: var(--bg);
-  padding: 32px 40px;
+  padding: 16px 24px;
   border-radius: 8px;
   text-align: center;
-  box-shadow: 0 6px 30px rgba(0,0,0,.4);
+  box-shadow: 0 4px 18px rgba(0,0,0,.25);
   border: 1px solid var(--wood-mid);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-width: 280px;
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
 }
-#game-over-box h2 {
+#game-over-panel.hidden { display: none; }
+#game-over-panel h2 {
   font-size: 1.8rem;
   color: var(--wood-dark);
   letter-spacing: .1em;

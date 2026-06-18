@@ -83,10 +83,13 @@ function startGame() {
   history = [];
   game = new Game(boardSize);
   show('screen-game');
-  $('game-over-overlay').classList.add('hidden');
+  $('game-over-panel').classList.add('hidden');
   // Show the Sensei avatar only when playing against the AI.
   $('ai-avatar-wrap').classList.toggle('hidden', gameMode !== 'pvai');
   $('avatar-name').textContent = gameMode === 'pvai' ? `Sensei · ${DIFF_NAMES[aiDiff]}` : '';
+  // In PvP the left avatar is Black, in PvAI it's the human player.
+  $('player-avatar-wrap').querySelector('.side-name').textContent =
+    gameMode === 'pvai' ? 'You' : 'Black';
   setThinking(false);
   setupCanvas();
   update();
@@ -97,8 +100,9 @@ function setupCanvas() {
   canvas = $('board-canvas');
   ctx = canvas.getContext('2d');
   canvas.onclick = onCanvasClick;
-  const maxPx = Math.min(window.innerWidth - 48, window.innerHeight - 220, 560);
-  canvas.width = canvas.height = maxPx;
+  // Leave room for the avatars flanking the board (~76px each side).
+  const maxPx = Math.min(window.innerWidth - 48 - 152, window.innerHeight - 220, 520);
+  canvas.width = canvas.height = Math.max(maxPx, 240);
   cellSize = (maxPx - PAD * 2) / (boardSize - 1);
 }
 
@@ -187,17 +191,16 @@ function update() {
 
   if (game.is_game_over()) {
     showScore();
-    $('game-over-overlay').classList.remove('hidden');
+    $('game-over-panel').classList.remove('hidden');
   }
 }
 
-// Draw `count` small stones; cap the visible row so it never overflows.
-const MAX_DOTS = 10;
+// Draw one small stone per capture, in the capturing player's colour.
+// They wrap onto a new row after 10 (see .cap-dots max-width in CSS).
 function renderCapDots(id, count, color) {
   const el = $(id);
   el.innerHTML = '';
-  const shown = Math.min(count, MAX_DOTS);
-  for (let i = 0; i < shown; i++) {
+  for (let i = 0; i < count; i++) {
     const s = document.createElement('span');
     s.className = `mini-stone ${color}`;
     el.appendChild(s);

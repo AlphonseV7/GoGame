@@ -86,22 +86,6 @@
         <button class="small-btn" id="pass-btn">Pass</button>
       </div>
 
-      <!-- Sensei avatar (AI games only). The .thinking class animates it. -->
-      <div id="ai-avatar-wrap" class="hidden">
-        <div id="ai-avatar">
-          <div class="bust">
-            <div class="head">
-              <div class="eye left"></div>
-              <div class="eye right"></div>
-              <div class="brow left"></div>
-              <div class="brow right"></div>
-            </div>
-          </div>
-          <div class="thought"><span></span><span></span><span></span></div>
-        </div>
-        <div id="avatar-name"></div>
-      </div>
-
       <div id="captures-bar">
         <div class="cap-info">
           <span class="stone-icon black"></span>
@@ -116,11 +100,35 @@
         </div>
       </div>
 
-      <canvas id="board-canvas"></canvas>
-    </div>
+      <!-- Board flanked by avatars: player (left) and Sensei (right). -->
+      <div id="board-row">
+        <!-- Player avatar — humanoid silhouette placeholder (left side). -->
+        <div id="player-avatar-wrap" class="side-avatar">
+          <div class="humanoid"></div>
+          <div class="side-name">You</div>
+        </div>
 
-    <div id="game-over-overlay" class="hidden">
-      <div id="game-over-box">
+        <canvas id="board-canvas"></canvas>
+
+        <!-- Sensei avatar (AI games only). The .thinking class animates it. -->
+        <div id="ai-avatar-wrap" class="side-avatar hidden">
+          <div id="ai-avatar">
+            <div class="bust">
+              <div class="head">
+                <div class="eye left"></div>
+                <div class="eye right"></div>
+                <div class="brow left"></div>
+                <div class="brow right"></div>
+              </div>
+            </div>
+            <div class="thought"><span></span><span></span><span></span></div>
+          </div>
+          <div id="avatar-name"></div>
+        </div>
+      </div>
+
+      <!-- Scoreboard sits inline (board stays visible) so players can verify. -->
+      <div id="game-over-panel" class="hidden">
         <h2>Game Over</h2>
         <table id="score-table">
           <thead>
