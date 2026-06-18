@@ -4,7 +4,7 @@ A browser-based Go (Baduk) game built in Rust compiled to WebAssembly.
 
 ## Playing
 
-Visit the live game at: **https://alphonsev7.github.io/gogame**
+Visit the live game at: **https://alphonsev7.github.io/GoGame/**
 
 ## Rules (Japanese)
 
